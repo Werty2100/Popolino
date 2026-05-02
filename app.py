@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Lista amici (aggiungete i vostri nomi)
+# Lista amici
 AMICI = ["AntonioB.", "Massimo", "Mario", "Joele", "Vincenzo", "AntonioR.", "Giovanni"]
 
 # ── SIDEBAR ──────────────────────────────────────
@@ -55,7 +55,6 @@ if pagina == "🏠 Home":
 elif pagina == "➕ Aggiungi uscita":
     st.title("➕ Aggiungi un'uscita")
 
-    # Inizializza session_state
     if "dati_uscita" not in st.session_state:
         st.session_state.dati_uscita = {f"presente_{a}": False for a in AMICI}
         st.session_state.dati_uscita.update({f"voto_{a}": 0.0 for a in AMICI})
@@ -93,7 +92,7 @@ elif pagina == "➕ Aggiungi uscita":
 
     st.divider()
 
-    if st.button("💾 Salva uscita", use_container_width=True):
+    if st.button("💾 Salva uscita", width="stretch"):
         dati_da_salvare = dict(st.session_state.dati_uscita)
         dati_da_salvare["data"] = str(data_uscita)
         db.collection("uscite").add(dati_da_salvare)
@@ -129,9 +128,9 @@ elif pagina == "📋 Storico uscite":
                     tabella.append({
                         "Amico": amico,
                         "Presente": "✅" if dati.get(f"presente_{amico}") else "❌",
-                        "Voto": dati.get(f"voto_{amico}", "—") if dati.get(f"presente_{amico}") else "—"
+                        "Voto": str(dati.get(f"voto_{amico}", "—")) if dati.get(f"presente_{amico}") else "—"
                     })
-                st.dataframe(pd.DataFrame(tabella), hide_index=True, use_container_width=True)
+                st.dataframe(pd.DataFrame(tabella), hide_index=True, width="stretch")
 
 # ══════════════════════════════════════════════════
 # PAGINA STATISTICHE
@@ -146,7 +145,7 @@ elif pagina == "📊 Statistiche":
     else:
         tutti_dati = [s.to_dict() for s in uscite]
 
-        # ── Presenze totali a numero in ordine alfabetico
+        # ── Presenze totali
         st.subheader("👥 Presenze totali")
         amici_ordinati = sorted(AMICI)
         presenze = {a: sum(1 for d in tutti_dati if d.get(f"presente_{a}")) for a in amici_ordinati}
@@ -158,7 +157,7 @@ elif pagina == "📊 Statistiche":
 
         st.divider()
 
-        # ── Grafico presenze senza valori negativi
+        # ── Grafico presenze
         st.subheader("📊 Grafico presenze")
         import plotly.graph_objects as go
 
@@ -179,12 +178,12 @@ elif pagina == "📊 Statistiche":
             paper_bgcolor="rgba(0,0,0,0)",
             margin=dict(t=20, b=20)
         )
-        st.plotly_chart(fig_presenze, use_container_width=True)
+        st.plotly_chart(fig_presenze, width="stretch")
 
         st.divider()
 
-        # ── Media voti per persona senza valori negativi
-        st.subheader("Media voti per persona")
+        # ── Media voti per persona
+        st.subheader("⭐ Media voti per persona")
         medie = {}
         for a in amici_ordinati:
             voti = [d.get(f"voto_{a}", 0) for d in tutti_dati if d.get(f"presente_{a}")]
@@ -207,4 +206,4 @@ elif pagina == "📊 Statistiche":
             paper_bgcolor="rgba(0,0,0,0)",
             margin=dict(t=20, b=20)
         )
-        st.plotly_chart(fig_medie, use_container_width=True)
+        st.plotly_chart(fig_medie, width="stretch")
