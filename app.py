@@ -136,9 +136,9 @@ elif pagina == "📋 Storico uscite":
                 # Badge hittato / gasato
                 badges = []
                 if dati.get("hittato"):
-                    badges.append("💥 Hittato")
+                    badges.append("Hittato")
                 if dati.get("gasato"):
-                    badges.append("🔥 Gasato")
+                    badges.append("Gasato")
                 if badges:
                     st.markdown("**La serata ha:** " + " &nbsp;|&nbsp; ".join(badges))
 
