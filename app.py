@@ -96,9 +96,9 @@ elif pagina == "➕ Aggiungi uscita":
     st.subheader("La serata ha:")
     col1, col2 = st.columns(2)
     with col1:
-        hittato = st.checkbox("💥 Hittato", key="hittato")
+        hittato = st.checkbox("Hittato", key="hittato")
     with col2:
-        gasato = st.checkbox("🔥 Gasato", key="gasato")
+        gasato = st.checkbox("Gasato", key="gasato")
 
     st.divider()
 
