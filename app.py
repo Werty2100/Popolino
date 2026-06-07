@@ -141,9 +141,9 @@ elif pagina == "📋 Storico uscite":
                 gasato = dati.get("gasato", False)
 
                 if hittato and gasato:
-                    st.markdown("**La serata ha hittato e gasato**")
+                    st.markdown("La serata ha hittato e gasato")
                 elif hittato:
-                    st.markdown("**La serata ha hittato**")
+                    st.markdown("La serata ha hittato")
 
                 st.divider()
 
