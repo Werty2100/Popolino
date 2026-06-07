@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from firebase_config import init_firebase
-from datetime import date
+from datetime import date, datetime
 
 # Connessione Firebase
 db = init_firebase()
@@ -21,6 +21,7 @@ st.sidebar.title("Popolino")
 pagina = st.sidebar.selectbox("Menu", [
     "🏠 Home",
     "➕ Aggiungi uscita",
+    "✍️ Modifica uscita",
     "📋 Storico uscite",
     "📊 Statistiche"
 ])
@@ -98,7 +99,6 @@ elif pagina == "➕ Aggiungi uscita":
     with col1:
         hittato = st.checkbox("Hittato", key="hittato")
     with col2:
-        # Gasato è abilitato solo se hittato è spuntato
         gasato = st.checkbox("Gasato", key="gasato", disabled=not hittato)
         if not hittato:
             st.caption("Prima deve hittare")
@@ -113,6 +113,86 @@ elif pagina == "➕ Aggiungi uscita":
         db.collection("uscite").add(dati_da_salvare)
         del st.session_state.dati_uscita
         st.success("Uscita salvata! 🎉")
+
+# ══════════════════════════════════════════════════
+# PAGINA MODIFICA USCITA
+# ══════════════════════════════════════════════════
+elif pagina == "✍️ Modifica uscita":
+    st.title("✍️ Modifica uscita")
+
+    uscite = db.collection("uscite").order_by("data", direction="DESCENDING").get()
+
+    if not uscite:
+        st.info("Nessuna uscita da modificare.")
+    else:
+        # Selezione uscita da modificare
+        opzioni = {s.id: s.to_dict()["data"] for s in uscite}
+        uscita_id = st.selectbox(
+            "Seleziona l'uscita da modificare",
+            options=list(opzioni.keys()),
+            format_func=lambda x: opzioni[x]
+        )
+
+        dati = db.collection("uscite").document(uscita_id).get().to_dict()
+
+        st.divider()
+
+        # Data
+        data_attuale = datetime.strptime(dati["data"], "%Y-%m-%d").date()
+        data_uscita = st.date_input("Data", value=data_attuale)
+
+        st.divider()
+        st.subheader("Presenze e voti")
+
+        nuovi_dati = {}
+
+        for amico in AMICI:
+            col1, col2, col3 = st.columns([2, 1, 3])
+            with col1:
+                st.markdown(f"**{amico}**")
+            with col2:
+                presente = st.checkbox(
+                    "Presente",
+                    key=f"mod_pres_{amico}",
+                    value=dati.get(f"presente_{amico}", False)
+                )
+                nuovi_dati[f"presente_{amico}"] = presente
+            with col3:
+                if presente:
+                    voto_attuale = dati.get(f"voto_{amico}", 7.0)
+                    voto = st.number_input(
+                        "Voto",
+                        min_value=1.0,
+                        max_value=10.0,
+                        value=float(voto_attuale) if voto_attuale and voto_attuale > 0 else 7.0,
+                        step=0.25,
+                        key=f"mod_voto_{amico}"
+                    )
+                    nuovi_dati[f"voto_{amico}"] = voto
+                else:
+                    nuovi_dati[f"voto_{amico}"] = 0.0
+                    st.caption("Assente")
+
+        st.divider()
+
+        # Valutazione serata
+        st.subheader("La serata ha:")
+        col1, col2 = st.columns(2)
+        with col1:
+            hittato = st.checkbox("Hittato", key="mod_hittato", value=dati.get("hittato", False))
+        with col2:
+            gasato = st.checkbox("Gasato", key="mod_gasato", value=dati.get("gasato", False), disabled=not hittato)
+            if not hittato:
+                st.caption("Prima deve hittare")
+
+        st.divider()
+
+        if st.button("💾 Salva modifiche", width="stretch"):
+            nuovi_dati["data"] = str(data_uscita)
+            nuovi_dati["hittato"] = hittato
+            nuovi_dati["gasato"] = gasato if hittato else False
+            db.collection("uscite").document(uscita_id).set(nuovi_dati)
+            st.success("Uscita modificata! ✅")
 
 # ══════════════════════════════════════════════════
 # PAGINA STORICO
@@ -136,14 +216,13 @@ elif pagina == "📋 Storico uscite":
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
 
-                # Frase condizionale hittato / gasato
                 hittato = dati.get("hittato", False)
                 gasato = dati.get("gasato", False)
 
                 if hittato and gasato:
-                    st.markdown("La serata ha hittato e gasato")
+                    st.markdown("**La serata ha hittato e gasato! 💥🔥**")
                 elif hittato:
-                    st.markdown("La serata ha hittato")
+                    st.markdown("**La serata ha hittato! 💥**")
 
                 st.divider()
 
