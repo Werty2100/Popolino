@@ -98,7 +98,10 @@ elif pagina == "➕ Aggiungi uscita":
     with col1:
         hittato = st.checkbox("Hittato", key="hittato")
     with col2:
-        gasato = st.checkbox("Gasato", key="gasato")
+        # Gasato è abilitato solo se hittato è spuntato
+        gasato = st.checkbox("Gasato", key="gasato", disabled=not hittato)
+        if not hittato:
+            st.caption("Prima deve hittare")
 
     st.divider()
 
@@ -106,7 +109,7 @@ elif pagina == "➕ Aggiungi uscita":
         dati_da_salvare = dict(st.session_state.dati_uscita)
         dati_da_salvare["data"] = str(data_uscita)
         dati_da_salvare["hittato"] = hittato
-        dati_da_salvare["gasato"] = gasato
+        dati_da_salvare["gasato"] = gasato if hittato else False
         db.collection("uscite").add(dati_da_salvare)
         del st.session_state.dati_uscita
         st.success("Uscita salvata! 🎉")
@@ -133,14 +136,14 @@ elif pagina == "📋 Storico uscite":
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
 
-                # Badge hittato / gasato
-                badges = []
-                if dati.get("hittato"):
-                    badges.append("Hittato")
-                if dati.get("gasato"):
-                    badges.append("Gasato")
-                if badges:
-                    st.markdown("**La serata ha:** " + " &nbsp;|&nbsp; ".join(badges))
+                # Frase condizionale hittato / gasato
+                hittato = dati.get("hittato", False)
+                gasato = dati.get("gasato", False)
+
+                if hittato and gasato:
+                    st.markdown("**La serata ha hittato e gasato**")
+                elif hittato:
+                    st.markdown("**La serata ha hittato**")
 
                 st.divider()
 
