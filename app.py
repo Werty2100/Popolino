@@ -9,7 +9,7 @@ db = init_firebase()
 # Configurazione pagina
 st.set_page_config(
     page_title="Popolino",
-    page_icon="",
+    page_icon="🎉",
     layout="wide"
 )
 
@@ -59,9 +59,12 @@ if pagina == "🏠 Home":
 elif pagina == "➕ Aggiungi uscita":
     st.title("➕ Aggiungi un'uscita")
 
+    # Inizializzazione sicura dello stato
     if "dati_uscita" not in st.session_state:
         st.session_state.dati_uscita = {f"presente_{a}": False for a in AMICI}
         st.session_state.dati_uscita.update({f"voto_{a}": 0.0 for a in AMICI})
+        st.session_state.dati_uscita["hittato"] = False
+        st.session_state.dati_uscita["gasato"] = False
 
     data_uscita = st.date_input("Data", value=date.today())
 
@@ -103,25 +106,34 @@ elif pagina == "➕ Aggiungi uscita":
 
     st.divider()
 
-    # ── Valutazione serata ─────────────────────────
+    # ── Valutazione serata salvata in Session State ─────────────────────────
     st.subheader("La serata ha:")
     col1, col2 = st.columns(2)
     with col1:
-        hittato = st.checkbox("Hittato", key="hittato")
+        hittato = st.checkbox("Hittato", key="hittato_check", value=st.session_state.dati_uscita["hittato"])
+        st.session_state.dati_uscita["hittato"] = hittato
     with col2:
-        gasato = st.checkbox("Gasato", key="gasato")
+        # Il checkbox gasato si mostra/attiva solo se la serata ha hittato
+        if hittato:
+            gasato = st.checkbox("Gasato", key="gasato_check", value=st.session_state.dati_uscita["gasato"])
+            st.session_state.dati_uscita["gasato"] = gasato
+        else:
+            st.session_state.dati_uscita["gasato"] = False
 
     st.divider()
 
     if st.button("💾 Salva uscita", width="stretch"):
         dati_da_salvare = dict(st.session_state.dati_uscita)
         dati_da_salvare["data"] = str(data_uscita)
-        dati_da_salvare["hittato"] = hittato
-        dati_da_salvare["gasato"] = gasato if hittato else False
         dati_da_salvare["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
+        
+        # Salvataggio su Firestore
         db.collection("uscite").add(dati_da_salvare)
+        
+        # Reset dello stato dopo il salvataggio
         del st.session_state.dati_uscita
         st.success("Uscita salvata! 🎉")
+        st.rerun()
 
 # ══════════════════════════════════════════════════
 # PAGINA MODIFICA USCITA
@@ -141,14 +153,10 @@ elif pagina == "✍️ Modifica uscita":
             format_func=lambda x: opzioni[x]["data"]
         )
 
-        # Se l'uscita selezionata è cambiata, pulisci tutte le key della vecchia
         if st.session_state.get("mod_uscita_id_corrente") != uscita_id:
             vecchio_id = st.session_state.get("mod_uscita_id_corrente")
             if vecchio_id:
-                prefissi = (
-                    f"mod_pres_{vecchio_id}",
-                    f"mod_voto_{vecchio_id}",
-                )
+                prefissi = (f"mod_pres_{vecchio_id}", f"mod_voto_{vecchio_id}")
                 esatti = {
                     f"mod_hittato_{vecchio_id}",
                     f"mod_gasato_{vecchio_id}",
@@ -168,7 +176,6 @@ elif pagina == "✍️ Modifica uscita":
         data_attuale = datetime.strptime(dati["data"], "%Y-%m-%d").date()
         data_uscita = st.date_input("Data", value=data_attuale, key=f"mod_data_{uscita_id}")
 
-        # ── Titolo opzionale ───────────────────────
         st.divider()
         key_has_titolo = f"mod_has_titolo_{uscita_id}"
         key_titolo = f"mod_titolo_{uscita_id}"
@@ -230,7 +237,11 @@ elif pagina == "✍️ Modifica uscita":
             key_gas = f"mod_gasato_{uscita_id}"
             if key_gas not in st.session_state:
                 st.session_state[key_gas] = bool(dati.get("gasato", False))
-            gasato = st.checkbox("Gasato", key=key_gas)
+            
+            if hittato:
+                gasato = st.checkbox("Gasato", key=key_gas)
+            else:
+                gasato = False
 
         st.divider()
 
@@ -241,10 +252,10 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
             db.collection("uscite").document(uscita_id).set(nuovi_dati)
             st.success("Uscita modificata! ✅")
+            st.rerun()
 
         st.divider()
 
-        # ── Zona pericolosa: eliminazione ─────────
         with st.expander("🗑️ Elimina questa uscita"):
             label_uscita = dati.get("titolo") or dati["data"]
             st.warning(f"Stai per eliminare definitivamente **{label_uscita}**. Questa azione è irreversibile.")
@@ -255,7 +266,7 @@ elif pagina == "✍️ Modifica uscita":
             if st.button("🗑️ Elimina uscita", disabled=not st.session_state.get(key_conferma, False), type="primary"):
                 db.collection("uscite").document(uscita_id).delete()
                 st.success("Uscita eliminata.")
-                st.switch_page("app.py")
+                st.rerun()
 
 # ══════════════════════════════════════════════════
 # PAGINA STORICO
@@ -277,19 +288,27 @@ elif pagina == "📋 Storico uscite":
             hittato = bool(dati.get("hittato", False))
             gasato = bool(dati.get("gasato", False))
 
-            # Badge nell'expander
-            badge = " 💥🔥" if (hittato and gasato) else " 💥" if hittato else ""
+            # Creazione dinamica dei badge nel titolo dell'expander
+            badge = ""
+            if hittato and gasato:
+                badge = " 💥🔥 [HITTATO & GASATO]"
+            elif hittato:
+                badge = " 💥 [HITTATO]"
+
             label_expander = f"🎉 {titolo} — {dati['data']}{badge}" if titolo else f"🎉 Uscita del {dati['data']}{badge}"
 
             with st.expander(label_expander):
-                col1, col2 = st.columns(2)
+                col1, col2, col3 = st.columns(3)
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
-
+                
+                # Visualizzazione esplicita dello stato della serata tramite comodi KPI
+                status_serata = "No 😴"
                 if hittato and gasato:
-                    st.markdown("**La serata ha hittato e gasato! 💥🔥**")
+                    status_serata = "Hittato & Gasato! 💥🔥"
                 elif hittato:
-                    st.markdown("**La serata ha hittato! 💥**")
+                    status_serata = "Hittato! 💥"
+                col3.metric("Vibe della serata", status_serata)
 
                 st.divider()
 
@@ -297,10 +316,10 @@ elif pagina == "📋 Storico uscite":
                 for amico in AMICI:
                     tabella.append({
                         "Amico": amico,
-                        "Presente": "✅" if dati.get(f"presente_{amico}") else "❌",
+                        "Presente": "✅" if dati.get(f"presente_{aico}" if 'aico' in locals() else f"presente_{amico}") else "❌",
                         "Voto": str(dati.get(f"voto_{amico}", "—")) if dati.get(f"presente_{amico}") else "—"
                     })
-                st.dataframe(pd.DataFrame(tabella), hide_index=True, width="stretch")
+                st.dataframe(pd.DataFrame(tabella), hide_index=True, use_container_width=True)
 
 # ══════════════════════════════════════════════════
 # PAGINA STATISTICHE
@@ -315,12 +334,10 @@ elif pagina == "📊 Statistiche":
     else:
         tutti_dati = [{"id": s.id, **s.to_dict()} for s in uscite]
 
-        # Calcola media per ogni uscita
         for d in tutti_dati:
             voti = [d.get(f"voto_{a}", 0) for a in AMICI if d.get(f"presente_{a}")]
             d["_media"] = round(sum(voti) / len(voti), 1) if voti else 0
 
-        # ── Presenze totali ────────────────────────
         st.subheader("👥 Presenze totali")
         amici_ordinati = sorted(AMICI)
         presenze = {a: sum(1 for d in tutti_dati if d.get(f"presente_{a}")) for a in amici_ordinati}
@@ -332,7 +349,6 @@ elif pagina == "📊 Statistiche":
 
         st.divider()
 
-        # ── Grafico presenze ───────────────────────
         st.subheader("📊 Grafico presenze")
         import plotly.graph_objects as go
 
@@ -353,11 +369,10 @@ elif pagina == "📊 Statistiche":
             paper_bgcolor="rgba(0,0,0,0)",
             margin=dict(t=20, b=20)
         )
-        st.plotly_chart(fig_presenze, width="stretch")
+        st.plotly_chart(fig_presenze, use_container_width=True)
 
         st.divider()
 
-        # ── Media voti per persona ─────────────────
         st.subheader("⭐ Media voti per persona")
         medie = {}
         for a in amici_ordinati:
@@ -381,11 +396,10 @@ elif pagina == "📊 Statistiche":
             paper_bgcolor="rgba(0,0,0,0)",
             margin=dict(t=20, b=20)
         )
-        st.plotly_chart(fig_medie, width="stretch")
+        st.plotly_chart(fig_medie, use_container_width=True)
 
         st.divider()
 
-        # ── Qualità delle serate ───────────────────
         st.subheader("🏆 Qualità delle serate")
 
         serate_10  = [d for d in tutti_dati if d["_media"] == 10.0]
@@ -413,7 +427,6 @@ elif pagina == "📊 Statistiche":
 
         st.divider()
 
-        # ── Top 3 serate del mese ──────────────────
         st.subheader("🥇 Top 3 serate del mese")
 
         mesi_disponibili = sorted(
