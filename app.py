@@ -211,9 +211,7 @@ elif pagina == "✍️ Modifica uscita":
             key_gas = f"mod_gasato_{uscita_id}"
             if key_gas not in st.session_state:
                 st.session_state[key_gas] = dati.get("gasato", False)
-            gasato = st.checkbox("Gasato", key=key_gas, disabled=not hittato)
-            if not hittato:
-                st.caption("Prima deve hittare")
+            gasato = st.checkbox("Gasato", key=key_gas)
 
         st.divider()
 
