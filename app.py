@@ -123,7 +123,6 @@ elif pagina == "✍️ Modifica uscita":
     if not uscite:
         st.info("Nessuna uscita da modificare.")
     else:
-        # Selezione uscita da modificare
         opzioni = {s.id: s.to_dict()["data"] for s in uscite}
         uscita_id = st.selectbox(
             "Seleziona l'uscita da modificare",
@@ -131,13 +130,19 @@ elif pagina == "✍️ Modifica uscita":
             format_func=lambda x: opzioni[x]
         )
 
+        # Se l'uscita selezionata è cambiata, pulisci i valori salvati
+        if st.session_state.get("mod_uscita_id") != uscita_id:
+            st.session_state["mod_uscita_id"] = uscita_id
+            for key in list(st.session_state.keys()):
+                if key.startswith("mod_pres_") or key.startswith("mod_voto_") or key in ("mod_hittato", "mod_gasato"):
+                    del st.session_state[key]
+
         dati = db.collection("uscite").document(uscita_id).get().to_dict()
 
         st.divider()
 
-        # Data
         data_attuale = datetime.strptime(dati["data"], "%Y-%m-%d").date()
-        data_uscita = st.date_input("Data", value=data_attuale)
+        data_uscita = st.date_input("Data", value=data_attuale, key=f"mod_data_{uscita_id}")
 
         st.divider()
         st.subheader("Presenze e voti")
@@ -173,7 +178,6 @@ elif pagina == "✍️ Modifica uscita":
 
         st.divider()
 
-        # Valutazione serata
         st.subheader("La serata ha:")
         col1, col2 = st.columns(2)
         with col1:
@@ -190,6 +194,10 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["hittato"] = hittato
             nuovi_dati["gasato"] = gasato if hittato else False
             db.collection("uscite").document(uscita_id).set(nuovi_dati)
+            # Reset cache dopo il salvataggio
+            for key in list(st.session_state.keys()):
+                if key.startswith("mod_pres_") or key.startswith("mod_voto_") or key in ("mod_hittato", "mod_gasato", "mod_uscita_id"):
+                    del st.session_state[key]
             st.success("Uscita modificata! ✅")
 
 # ══════════════════════════════════════════════════
