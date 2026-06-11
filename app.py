@@ -146,6 +146,14 @@ elif pagina == "✍️ Modifica uscita":
 
         st.divider()
 
+        # Intestazione con titolo e data separati
+        titolo_header = dati.get("titolo", "")
+        if titolo_header:
+            st.markdown(f"## {titolo_header}")
+        st.caption(f"📅 Data registrata: {dati['data']}")
+
+        st.divider()
+
         data_attuale = datetime.strptime(dati["data"], "%Y-%m-%d").date()
         data_uscita = st.date_input("Data", value=data_attuale, key=f"mod_data_{uscita_id}")
 
@@ -212,7 +220,7 @@ elif pagina == "✍️ Modifica uscita":
             if key_gas not in st.session_state:
                 st.session_state[key_gas] = dati.get("gasato", False)
             gasato = st.checkbox("Gasato", key=key_gas)
-
+            
         st.divider()
 
         if st.button("💾 Salva modifiche", width="stretch"):
