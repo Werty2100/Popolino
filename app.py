@@ -231,16 +231,13 @@ elif pagina == "✍️ Modifica uscita":
             st.warning(f"Stai per eliminare definitivamente **{label_uscita}**. Questa azione è irreversibile.")
 
             key_conferma = f"conferma_elimina_{uscita_id}"
-            if key_conferma not in st.session_state:
-                st.session_state[key_conferma] = False
 
             st.checkbox("Confermo di voler eliminare questa uscita", key=key_conferma)
 
-            if st.button("🗑️ Elimina uscita", disabled=not st.session_state[key_conferma], type="primary"):
+            if st.button("🗑️ Elimina uscita", disabled=not st.session_state.get(key_conferma, False), type="primary"):
                 db.collection("uscite").document(uscita_id).delete()
-                st.session_state[key_conferma] = False
                 st.success("Uscita eliminata.")
-                st.rerun()
+                st.switch_page("app.py")
 
 # ══════════════════════════════════════════════════
 # PAGINA STORICO
