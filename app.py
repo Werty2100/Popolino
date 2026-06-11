@@ -41,11 +41,10 @@ if pagina == "🏠 Home":
         with st.container(border=True):
             col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
+                st.markdown(f"### {dati['data']}")
                 titolo = dati.get("titolo", "")
-                label = f"### {titolo}" if titolo else f"### {dati['data']}"
-                st.markdown(label)
                 if titolo:
-                    st.caption(dati['data'])
+                    st.caption(titolo)
             with col2:
                 presenti = sum(1 for a in AMICI if dati.get(f"presente_{a}"))
                 st.metric("Presenti", f"{presenti}/{len(AMICI)}")
@@ -142,7 +141,18 @@ elif pagina == "✍️ Modifica uscita":
             format_func=lambda x: opzioni[x]["data"]
         )
 
-        dati = db.collection("uscite").document(uscita_id).get().to_dict()
+        # Se l'uscita selezionata è cambiata, pulisci tutte le key della vecchia
+        if st.session_state.get("mod_uscita_id_corrente") != uscita_id:
+            vecchio_id = st.session_state.get("mod_uscita_id_corrente")
+            if vecchio_id:
+                for key in list(st.session_state.keys()):
+                    if key.startswith(f"mod_pres_{vecchio_id}") or                        key.startswith(f"mod_voto_{vecchio_id}") or                        key in (f"mod_hittato_{vecchio_id}", f"mod_gasato_{vecchio_id}",
+                               f"mod_has_titolo_{vecchio_id}", f"mod_titolo_{vecchio_id}",
+                               f"mod_data_{vecchio_id}"):
+                        del st.session_state[key]
+            st.session_state["mod_uscita_id_corrente"] = uscita_id
+
+        dati = opzioni[uscita_id]
 
         st.divider()
 
