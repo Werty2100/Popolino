@@ -230,7 +230,7 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["hittato"] = hittato
             nuovi_dati["gasato"] = gasato if hittato else False
             nuovi_dati["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
-            db.collection("uscite").document(uscita_id).set(nuovi_dati)
+            db.collection("uscite").document(uscita_id).set(nuovi_dati, merge=True)
             st.success("Uscita modificata! ✅")
 
         st.divider()
@@ -382,10 +382,17 @@ elif pagina == "📊 Statistiche":
         serate_8_9  = [d for d in tutti_dati if 8.0 <= d["_media"] < 10.0]
         serate_6_7  = [d for d in tutti_dati if 6.0 <= d["_media"] < 8.0]
 
+        serate_hittato = [d for d in tutti_dati if d.get("hittato")]
+        serate_gasato  = [d for d in tutti_dati if d.get("gasato")]
+
         col1, col2, col3 = st.columns(3)
         col1.metric("🌟 Media 10", len(serate_10))
         col2.metric("🔥 Media 8–9", len(serate_8_9))
         col3.metric("👍 Media 6–7", len(serate_6_7))
+
+        col4, col5 = st.columns(2)
+        col4.metric("💥 Serate hittate", len(serate_hittato))
+        col5.metric("💥🔥 Serate hittate e gasate", len(serate_gasato))
 
         # Mostra le serate con media 10 se esistono
         if serate_10:
@@ -445,9 +452,14 @@ elif pagina == "📊 Statistiche":
                         col1, col2 = st.columns([3, 1])
                         with col1:
                             titolo = d.get("titolo", "")
-                            nome = f"{medaglie[i]} **{titolo}**" if titolo else f"{medaglie[i]} **{d['data']}**"
-                            st.markdown(nome)
+                            st.markdown(f"{medaglie[i]} **{d['data']}**")
                             if titolo:
-                                st.caption(d["data"])
+                                st.caption(titolo)
+                            hittato = d.get("hittato", False)
+                            gasato = d.get("gasato", False)
+                            if hittato and gasato:
+                                st.caption("💥🔥 Ha hittato e gasato!")
+                            elif hittato:
+                                st.caption("💥 Ha hittato!")
                         with col2:
                             st.metric("⭐ Media", d["_media"])
