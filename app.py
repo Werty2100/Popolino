@@ -278,7 +278,7 @@ elif pagina == "📋 Storico uscite":
             hittato = bool(dati.get("hittato", False))
             gasato = bool(dati.get("gasato", False))
 
-            label_expander = f"🎉 {titolo} — {dati['data']}{badge}" if titolo else f"🎉 Uscita del {dati['data']}{badge}"
+            label_expander = f"🎉 {titolo} — {dati['data']}" if titolo else f"🎉 Uscita del {dati['data']}"
 
             with st.expander(label_expander):
                 col1, col2 = st.columns(2)
