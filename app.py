@@ -408,13 +408,6 @@ elif pagina == "📊 Statistiche":
         col4.metric("💥 Serate hittate", len(serate_hittato))
         col5.metric("🔥 Serate gasate", len(serate_gasato))
 
-        if serate_10:
-            st.markdown("**Serate con media 10:**")
-            for d in serate_10:
-                titolo = d.get("titolo", "")
-                label = f"✨ {titolo} — {d['data']}" if titolo else f"✨ {d['data']}"
-                st.caption(label)
-
         st.divider()
 
         # ── Top 3 serate del mese ──────────────────
