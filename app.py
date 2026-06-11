@@ -109,7 +109,7 @@ elif pagina == "➕ Aggiungi uscita":
     with col1:
         hittato = st.checkbox("Hittato", key="hittato")
     with col2:
-        gasato = st.checkbox("Gasato", key="gasato")
+        gasato = st.checkbox("Gasato", key="gasato", disabled=not hittato)
 
     st.divider()
 
@@ -145,10 +145,19 @@ elif pagina == "✍️ Modifica uscita":
         if st.session_state.get("mod_uscita_id_corrente") != uscita_id:
             vecchio_id = st.session_state.get("mod_uscita_id_corrente")
             if vecchio_id:
+                prefissi = (
+                    f"mod_pres_{vecchio_id}",
+                    f"mod_voto_{vecchio_id}",
+                )
+                esatti = {
+                    f"mod_hittato_{vecchio_id}",
+                    f"mod_gasato_{vecchio_id}",
+                    f"mod_has_titolo_{vecchio_id}",
+                    f"mod_titolo_{vecchio_id}",
+                    f"mod_data_{vecchio_id}",
+                }
                 for key in list(st.session_state.keys()):
-                    if key.startswith(f"mod_pres_{vecchio_id}") or                        key.startswith(f"mod_voto_{vecchio_id}") or                        key in (f"mod_hittato_{vecchio_id}", f"mod_gasato_{vecchio_id}",
-                               f"mod_has_titolo_{vecchio_id}", f"mod_titolo_{vecchio_id}",
-                               f"mod_data_{vecchio_id}"):
+                    if any(key.startswith(p) for p in prefissi) or key in esatti:
                         del st.session_state[key]
             st.session_state["mod_uscita_id_corrente"] = uscita_id
 
@@ -187,7 +196,7 @@ elif pagina == "✍️ Modifica uscita":
             with col2:
                 key_pres = f"mod_pres_{uscita_id}_{amico}"
                 if key_pres not in st.session_state:
-                    st.session_state[key_pres] = dati.get(f"presente_{amico}", False)
+                    st.session_state[key_pres] = bool(dati.get(f"presente_{amico}", False))
                 presente = st.checkbox("Presente", key=key_pres)
                 nuovi_dati[f"presente_{amico}"] = presente
             with col3:
@@ -215,13 +224,15 @@ elif pagina == "✍️ Modifica uscita":
         with col1:
             key_hit = f"mod_hittato_{uscita_id}"
             if key_hit not in st.session_state:
-                st.session_state[key_hit] = dati.get("hittato", False)
+                st.session_state[key_hit] = bool(dati.get("hittato", False))
             hittato = st.checkbox("Hittato", key=key_hit)
         with col2:
             key_gas = f"mod_gasato_{uscita_id}"
             if key_gas not in st.session_state:
-                st.session_state[key_gas] = dati.get("gasato", False)
-            gasato = st.checkbox("Gasato", key=key_gas)
+                st.session_state[key_gas] = bool(dati.get("gasato", False))
+            gasato = st.checkbox("Gasato", key=key_gas, disabled=not hittato)
+            if not hittato:
+                st.caption("Prima deve hittare")
 
         st.divider()
 
@@ -230,7 +241,7 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["hittato"] = hittato
             nuovi_dati["gasato"] = gasato if hittato else False
             nuovi_dati["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
-            db.collection("uscite").document(uscita_id).set(nuovi_dati, merge=True)
+            db.collection("uscite").document(uscita_id).set(nuovi_dati)
             st.success("Uscita modificata! ✅")
 
         st.divider()
@@ -241,7 +252,6 @@ elif pagina == "✍️ Modifica uscita":
             st.warning(f"Stai per eliminare definitivamente **{label_uscita}**. Questa azione è irreversibile.")
 
             key_conferma = f"conferma_elimina_{uscita_id}"
-
             st.checkbox("Confermo di voler eliminare questa uscita", key=key_conferma)
 
             if st.button("🗑️ Elimina uscita", disabled=not st.session_state.get(key_conferma, False), type="primary"):
@@ -266,15 +276,17 @@ elif pagina == "📋 Storico uscite":
             voti = [dati.get(f"voto_{a}", 0) for a in presenti]
             media = round(sum(voti) / len(voti), 1) if voti else 0
             titolo = dati.get("titolo", "")
-            label_expander = f"🎉 {titolo} — {dati['data']}" if titolo else f"🎉 Uscita del {dati['data']}"
+            hittato = bool(dati.get("hittato", False))
+            gasato = bool(dati.get("gasato", False))
+
+            # Badge nell'expander
+            badge = " 💥🔥" if (hittato and gasato) else " 💥" if hittato else ""
+            label_expander = f"🎉 {titolo} — {dati['data']}{badge}" if titolo else f"🎉 Uscita del {dati['data']}{badge}"
 
             with st.expander(label_expander):
                 col1, col2 = st.columns(2)
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
-
-                hittato = dati.get("hittato", False)
-                gasato = dati.get("gasato", False)
 
                 if hittato and gasato:
                     st.markdown("**La serata ha hittato e gasato! 💥🔥**")
@@ -378,12 +390,12 @@ elif pagina == "📊 Statistiche":
         # ── Qualità delle serate ───────────────────
         st.subheader("🏆 Qualità delle serate")
 
-        serate_10   = [d for d in tutti_dati if d["_media"] == 10.0]
-        serate_8_9  = [d for d in tutti_dati if 8.0 <= d["_media"] < 10.0]
-        serate_6_7  = [d for d in tutti_dati if 6.0 <= d["_media"] < 8.0]
+        serate_10  = [d for d in tutti_dati if d["_media"] == 10.0]
+        serate_8_9 = [d for d in tutti_dati if 8.0 <= d["_media"] < 10.0]
+        serate_6_7 = [d for d in tutti_dati if 6.0 <= d["_media"] < 8.0]
 
-        serate_hittato = [d for d in tutti_dati if d.get("hittato")]
-        serate_gasato  = [d for d in tutti_dati if d.get("gasato")]
+        serate_hittato = [d for d in tutti_dati if bool(d.get("hittato", False))]
+        serate_gasato  = [d for d in tutti_dati if bool(d.get("gasato", False))]
 
         col1, col2, col3 = st.columns(3)
         col1.metric("🌟 Media 10", len(serate_10))
@@ -394,7 +406,6 @@ elif pagina == "📊 Statistiche":
         col4.metric("💥 Serate hittate", len(serate_hittato))
         col5.metric("💥🔥 Serate hittate e gasate", len(serate_gasato))
 
-        # Mostra le serate con media 10 se esistono
         if serate_10:
             st.markdown("**Serate con media 10:**")
             for d in serate_10:
@@ -407,7 +418,6 @@ elif pagina == "📊 Statistiche":
         # ── Top 3 serate del mese ──────────────────
         st.subheader("🥇 Top 3 serate del mese")
 
-        # Ricava i mesi disponibili dalle uscite
         mesi_disponibili = sorted(
             set(d["data"][:7] for d in tutti_dati),
             reverse=True
@@ -424,14 +434,12 @@ elif pagina == "📊 Statistiche":
         if not serate_mese:
             st.info("Nessuna uscita in questo mese.")
         else:
-            # Costruisci le opzioni per il multiselect (label → dati)
             def label_serata(d):
                 titolo = d.get("titolo", "")
                 return f"{titolo} — {d['data']}" if titolo else d["data"]
 
             opzioni_serate = {label_serata(d): d for d in serate_mese}
 
-            # Recupera selezione salvata per questo mese
             key_top3 = f"top3_{mese_selezionato}"
             if key_top3 not in st.session_state:
                 st.session_state[key_top3] = []
@@ -455,8 +463,8 @@ elif pagina == "📊 Statistiche":
                             st.markdown(f"{medaglie[i]} **{d['data']}**")
                             if titolo:
                                 st.caption(titolo)
-                            hittato = d.get("hittato", False)
-                            gasato = d.get("gasato", False)
+                            hittato = bool(d.get("hittato", False))
+                            gasato = bool(d.get("gasato", False))
                             if hittato and gasato:
                                 st.caption("💥🔥 Ha hittato e gasato!")
                             elif hittato:
