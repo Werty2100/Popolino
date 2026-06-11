@@ -278,13 +278,6 @@ elif pagina == "📋 Storico uscite":
             hittato = bool(dati.get("hittato", False))
             gasato = bool(dati.get("gasato", False))
 
-            # Creazione dinamica dei badge
-            badge = ""
-            if hittato:
-                badge += " 💥"
-            if gasato:
-                badge += " 🔥"
-            
             label_expander = f"🎉 {titolo} — {dati['data']}{badge}" if titolo else f"🎉 Uscita del {dati['data']}{badge}"
 
             with st.expander(label_expander):
