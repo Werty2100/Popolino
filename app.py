@@ -41,7 +41,11 @@ if pagina == "🏠 Home":
         with st.container(border=True):
             col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
-                st.markdown(f"### {dati['data']}")
+                titolo = dati.get("titolo", "")
+                label = f"### {titolo}" if titolo else f"### {dati['data']}"
+                st.markdown(label)
+                if titolo:
+                    st.caption(dati['data'])
             with col2:
                 presenti = sum(1 for a in AMICI if dati.get(f"presente_{a}"))
                 st.metric("Presenti", f"{presenti}/{len(AMICI)}")
@@ -61,6 +65,13 @@ elif pagina == "➕ Aggiungi uscita":
         st.session_state.dati_uscita.update({f"voto_{a}": 0.0 for a in AMICI})
 
     data_uscita = st.date_input("Data", value=date.today())
+
+    # ── Titolo opzionale ───────────────────────────
+    st.divider()
+    aggiungi_titolo = st.checkbox("Aggiungi un titolo alla serata", key="add_titolo")
+    titolo_uscita = ""
+    if aggiungi_titolo:
+        titolo_uscita = st.text_input("Titolo", placeholder="Es. Serata pizza, Capodanno...", key="titolo_input")
 
     st.divider()
     st.subheader("Presenze e voti")
@@ -108,6 +119,7 @@ elif pagina == "➕ Aggiungi uscita":
         dati_da_salvare["data"] = str(data_uscita)
         dati_da_salvare["hittato"] = hittato
         dati_da_salvare["gasato"] = gasato if hittato else False
+        dati_da_salvare["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
         db.collection("uscite").add(dati_da_salvare)
         del st.session_state.dati_uscita
         st.success("Uscita salvata! 🎉")
@@ -137,6 +149,22 @@ elif pagina == "✍️ Modifica uscita":
         data_attuale = datetime.strptime(dati["data"], "%Y-%m-%d").date()
         data_uscita = st.date_input("Data", value=data_attuale, key=f"mod_data_{uscita_id}")
 
+        # ── Titolo opzionale ───────────────────────
+        st.divider()
+        key_has_titolo = f"mod_has_titolo_{uscita_id}"
+        key_titolo = f"mod_titolo_{uscita_id}"
+        titolo_esistente = dati.get("titolo", "")
+
+        if key_has_titolo not in st.session_state:
+            st.session_state[key_has_titolo] = bool(titolo_esistente)
+        if key_titolo not in st.session_state:
+            st.session_state[key_titolo] = titolo_esistente
+
+        aggiungi_titolo = st.checkbox("Aggiungi un titolo alla serata", key=key_has_titolo)
+        titolo_uscita = ""
+        if aggiungi_titolo:
+            titolo_uscita = st.text_input("Titolo", key=key_titolo, placeholder="Es. Serata pizza, Capodanno...")
+
         st.divider()
         st.subheader("Presenze e voti")
 
@@ -147,7 +175,6 @@ elif pagina == "✍️ Modifica uscita":
             with col1:
                 st.markdown(f"**{amico}**")
             with col2:
-                # Key unica per uscita: Streamlit usa value= solo se la key non esiste ancora
                 key_pres = f"mod_pres_{uscita_id}_{amico}"
                 if key_pres not in st.session_state:
                     st.session_state[key_pres] = dati.get(f"presente_{amico}", False)
@@ -194,6 +221,7 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["data"] = str(data_uscita)
             nuovi_dati["hittato"] = hittato
             nuovi_dati["gasato"] = gasato if hittato else False
+            nuovi_dati["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
             db.collection("uscite").document(uscita_id).set(nuovi_dati)
             st.success("Uscita modificata! ✅")
 
@@ -213,8 +241,10 @@ elif pagina == "📋 Storico uscite":
             presenti = [a for a in AMICI if dati.get(f"presente_{a}")]
             voti = [dati.get(f"voto_{a}", 0) for a in presenti]
             media = round(sum(voti) / len(voti), 1) if voti else 0
+            titolo = dati.get("titolo", "")
+            label_expander = f"🎉 {titolo} — {dati['data']}" if titolo else f"🎉 Uscita del {dati['data']}"
 
-            with st.expander(f"🎉 Uscita del {dati['data']}"):
+            with st.expander(label_expander):
                 col1, col2 = st.columns(2)
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
@@ -249,9 +279,14 @@ elif pagina == "📊 Statistiche":
     if not uscite:
         st.info("Nessuna uscita ancora. Aggiungine una!")
     else:
-        tutti_dati = [s.to_dict() for s in uscite]
+        tutti_dati = [{"id": s.id, **s.to_dict()} for s in uscite]
 
-        # ── Presenze totali
+        # Calcola media per ogni uscita
+        for d in tutti_dati:
+            voti = [d.get(f"voto_{a}", 0) for a in AMICI if d.get(f"presente_{a}")]
+            d["_media"] = round(sum(voti) / len(voti), 1) if voti else 0
+
+        # ── Presenze totali ────────────────────────
         st.subheader("👥 Presenze totali")
         amici_ordinati = sorted(AMICI)
         presenze = {a: sum(1 for d in tutti_dati if d.get(f"presente_{a}")) for a in amici_ordinati}
@@ -263,7 +298,7 @@ elif pagina == "📊 Statistiche":
 
         st.divider()
 
-        # ── Grafico presenze
+        # ── Grafico presenze ───────────────────────
         st.subheader("📊 Grafico presenze")
         import plotly.graph_objects as go
 
@@ -288,7 +323,7 @@ elif pagina == "📊 Statistiche":
 
         st.divider()
 
-        # ── Media voti per persona
+        # ── Media voti per persona ─────────────────
         st.subheader("⭐ Media voti per persona")
         medie = {}
         for a in amici_ordinati:
@@ -313,3 +348,82 @@ elif pagina == "📊 Statistiche":
             margin=dict(t=20, b=20)
         )
         st.plotly_chart(fig_medie, width="stretch")
+
+        st.divider()
+
+        # ── Qualità delle serate ───────────────────
+        st.subheader("🏆 Qualità delle serate")
+
+        serate_10   = [d for d in tutti_dati if d["_media"] == 10.0]
+        serate_8_9  = [d for d in tutti_dati if 8.0 <= d["_media"] < 10.0]
+        serate_6_7  = [d for d in tutti_dati if 6.0 <= d["_media"] < 8.0]
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("🌟 Media 10", len(serate_10))
+        col2.metric("🔥 Media 8–9", len(serate_8_9))
+        col3.metric("👍 Media 6–7", len(serate_6_7))
+
+        # Mostra le serate con media 10 se esistono
+        if serate_10:
+            st.markdown("**Serate con media 10:**")
+            for d in serate_10:
+                titolo = d.get("titolo", "")
+                label = f"✨ {titolo} — {d['data']}" if titolo else f"✨ {d['data']}"
+                st.caption(label)
+
+        st.divider()
+
+        # ── Top 3 serate del mese ──────────────────
+        st.subheader("🥇 Top 3 serate del mese")
+
+        # Ricava i mesi disponibili dalle uscite
+        mesi_disponibili = sorted(
+            set(d["data"][:7] for d in tutti_dati),
+            reverse=True
+        )
+
+        mese_selezionato = st.selectbox(
+            "Seleziona il mese",
+            options=mesi_disponibili,
+            format_func=lambda m: datetime.strptime(m, "%Y-%m").strftime("%B %Y").capitalize()
+        )
+
+        serate_mese = [d for d in tutti_dati if d["data"].startswith(mese_selezionato)]
+
+        if not serate_mese:
+            st.info("Nessuna uscita in questo mese.")
+        else:
+            # Costruisci le opzioni per il multiselect (label → dati)
+            def label_serata(d):
+                titolo = d.get("titolo", "")
+                return f"{titolo} — {d['data']}" if titolo else d["data"]
+
+            opzioni_serate = {label_serata(d): d for d in serate_mese}
+
+            # Recupera selezione salvata per questo mese
+            key_top3 = f"top3_{mese_selezionato}"
+            if key_top3 not in st.session_state:
+                st.session_state[key_top3] = []
+
+            selezionate = st.multiselect(
+                "Scegli le 3 serate top (max 3)",
+                options=list(opzioni_serate.keys()),
+                default=st.session_state[key_top3],
+                max_selections=3,
+                key=key_top3
+            )
+
+            if selezionate:
+                for i, label in enumerate(selezionate):
+                    d = opzioni_serate[label]
+                    medaglie = ["🥇", "🥈", "🥉"]
+                    with st.container(border=True):
+                        col1, col2 = st.columns([3, 1])
+                        with col1:
+                            titolo = d.get("titolo", "")
+                            nome = f"{medaglie[i]} **{titolo}**" if titolo else f"{medaglie[i]} **{d['data']}**"
+                            st.markdown(nome)
+                            if titolo:
+                                st.caption(d["data"])
+                        with col2:
+                            st.metric("⭐ Media", d["_media"])
