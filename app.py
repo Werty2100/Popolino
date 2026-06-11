@@ -130,13 +130,6 @@ elif pagina == "✍️ Modifica uscita":
             format_func=lambda x: opzioni[x]
         )
 
-        # Se l'uscita selezionata è cambiata, pulisci i valori salvati
-        if st.session_state.get("mod_uscita_id") != uscita_id:
-            st.session_state["mod_uscita_id"] = uscita_id
-            for key in list(st.session_state.keys()):
-                if key.startswith("mod_pres_") or key.startswith("mod_voto_") or key in ("mod_hittato", "mod_gasato"):
-                    del st.session_state[key]
-
         dati = db.collection("uscite").document(uscita_id).get().to_dict()
 
         st.divider()
@@ -154,22 +147,24 @@ elif pagina == "✍️ Modifica uscita":
             with col1:
                 st.markdown(f"**{amico}**")
             with col2:
-                presente = st.checkbox(
-                    "Presente",
-                    key=f"mod_pres_{amico}",
-                    value=dati.get(f"presente_{amico}", False)
-                )
+                # Key unica per uscita: Streamlit usa value= solo se la key non esiste ancora
+                key_pres = f"mod_pres_{uscita_id}_{amico}"
+                if key_pres not in st.session_state:
+                    st.session_state[key_pres] = dati.get(f"presente_{amico}", False)
+                presente = st.checkbox("Presente", key=key_pres)
                 nuovi_dati[f"presente_{amico}"] = presente
             with col3:
                 if presente:
-                    voto_attuale = dati.get(f"voto_{amico}", 7.0)
+                    key_voto = f"mod_voto_{uscita_id}_{amico}"
+                    if key_voto not in st.session_state:
+                        voto_salvato = dati.get(f"voto_{amico}", 7.0)
+                        st.session_state[key_voto] = float(voto_salvato) if voto_salvato and voto_salvato > 0 else 7.0
                     voto = st.number_input(
                         "Voto",
                         min_value=1.0,
                         max_value=10.0,
-                        value=float(voto_attuale) if voto_attuale and voto_attuale > 0 else 7.0,
                         step=0.25,
-                        key=f"mod_voto_{amico}"
+                        key=key_voto
                     )
                     nuovi_dati[f"voto_{amico}"] = voto
                 else:
@@ -181,9 +176,15 @@ elif pagina == "✍️ Modifica uscita":
         st.subheader("La serata ha:")
         col1, col2 = st.columns(2)
         with col1:
-            hittato = st.checkbox("Hittato", key="mod_hittato", value=dati.get("hittato", False))
+            key_hit = f"mod_hittato_{uscita_id}"
+            if key_hit not in st.session_state:
+                st.session_state[key_hit] = dati.get("hittato", False)
+            hittato = st.checkbox("Hittato", key=key_hit)
         with col2:
-            gasato = st.checkbox("Gasato", key="mod_gasato", value=dati.get("gasato", False), disabled=not hittato)
+            key_gas = f"mod_gasato_{uscita_id}"
+            if key_gas not in st.session_state:
+                st.session_state[key_gas] = dati.get("gasato", False)
+            gasato = st.checkbox("Gasato", key=key_gas, disabled=not hittato)
             if not hittato:
                 st.caption("Prima deve hittare")
 
@@ -194,10 +195,6 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["hittato"] = hittato
             nuovi_dati["gasato"] = gasato if hittato else False
             db.collection("uscite").document(uscita_id).set(nuovi_dati)
-            # Reset cache dopo il salvataggio
-            for key in list(st.session_state.keys()):
-                if key.startswith("mod_pres_") or key.startswith("mod_voto_") or key in ("mod_hittato", "mod_gasato", "mod_uscita_id"):
-                    del st.session_state[key]
             st.success("Uscita modificata! ✅")
 
 # ══════════════════════════════════════════════════
