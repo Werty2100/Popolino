@@ -99,9 +99,7 @@ elif pagina == "➕ Aggiungi uscita":
     with col1:
         hittato = st.checkbox("Hittato", key="hittato")
     with col2:
-        gasato = st.checkbox("Gasato", key="gasato", disabled=not hittato)
-        if not hittato:
-            st.caption("Prima deve hittare")
+        gasato = st.checkbox("Gasato", key="gasato")
 
     st.divider()
 
