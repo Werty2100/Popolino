@@ -211,7 +211,9 @@ elif pagina == "✍️ Modifica uscita":
             key_gas = f"mod_gasato_{uscita_id}"
             if key_gas not in st.session_state:
                 st.session_state[key_gas] = dati.get("gasato", False)
-            gasato = st.checkbox("Gasato", key=key_gas)
+            gasato = st.checkbox("Gasato", key=key_gas, disabled=not hittato)
+            if not hittato:
+                st.caption("Prima deve hittare")
 
         st.divider()
 
@@ -222,6 +224,25 @@ elif pagina == "✍️ Modifica uscita":
             nuovi_dati["titolo"] = titolo_uscita.strip() if aggiungi_titolo else ""
             db.collection("uscite").document(uscita_id).set(nuovi_dati)
             st.success("Uscita modificata! ✅")
+
+        st.divider()
+
+        # ── Zona pericolosa: eliminazione ─────────
+        with st.expander("🗑️ Elimina questa uscita"):
+            label_uscita = dati.get("titolo") or dati["data"]
+            st.warning(f"Stai per eliminare definitivamente **{label_uscita}**. Questa azione è irreversibile.")
+
+            key_conferma = f"conferma_elimina_{uscita_id}"
+            if key_conferma not in st.session_state:
+                st.session_state[key_conferma] = False
+
+            st.checkbox("Confermo di voler eliminare questa uscita", key=key_conferma)
+
+            if st.button("🗑️ Elimina uscita", disabled=not st.session_state[key_conferma], type="primary"):
+                db.collection("uscite").document(uscita_id).delete()
+                st.session_state[key_conferma] = False
+                st.success("Uscita eliminata.")
+                st.rerun()
 
 # ══════════════════════════════════════════════════
 # PAGINA STORICO
@@ -360,6 +381,14 @@ elif pagina == "📊 Statistiche":
         col1.metric("🌟 Media 10", len(serate_10))
         col2.metric("🔥 Media 8–9", len(serate_8_9))
         col3.metric("👍 Media 6–7", len(serate_6_7))
+
+        # Mostra le serate con media 10 se esistono
+        if serate_10:
+            st.markdown("**Serate con media 10:**")
+            for d in serate_10:
+                titolo = d.get("titolo", "")
+                label = f"✨ {titolo} — {d['data']}" if titolo else f"✨ {d['data']}"
+                st.caption(label)
 
         st.divider()
 
