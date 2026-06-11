@@ -139,18 +139,10 @@ elif pagina == "✍️ Modifica uscita":
         uscita_id = st.selectbox(
             "Seleziona l'uscita da modificare",
             options=list(opzioni.keys()),
-            format_func=lambda x: f"{opzioni[x]['titolo']} — {opzioni[x]['data']}" if opzioni[x].get("titolo") else opzioni[x]["data"]
+            format_func=lambda x: opzioni[x]["data"]
         )
 
         dati = db.collection("uscite").document(uscita_id).get().to_dict()
-
-        st.divider()
-
-        # Intestazione con titolo e data separati
-        titolo_header = dati.get("titolo", "")
-        if titolo_header:
-            st.markdown(f"## {titolo_header}")
-        st.caption(f"📅 Data registrata: {dati['data']}")
 
         st.divider()
 
@@ -220,7 +212,7 @@ elif pagina == "✍️ Modifica uscita":
             if key_gas not in st.session_state:
                 st.session_state[key_gas] = dati.get("gasato", False)
             gasato = st.checkbox("Gasato", key=key_gas)
-            
+
         st.divider()
 
         if st.button("💾 Salva modifiche", width="stretch"):
