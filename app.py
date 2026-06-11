@@ -278,7 +278,7 @@ elif pagina == "📋 Storico uscite":
             hittato = bool(dati.get("hittato", False))
             gasato = bool(dati.get("gasato", False))
 
-            # Creazione dinamica dei badge nell'header dell'expander basata sulle scelte reali
+            # Creazione dinamica dei badge
             badge = ""
             if hittato:
                 badge += " 💥"
@@ -292,7 +292,6 @@ elif pagina == "📋 Storico uscite":
                 col1.metric("⭐ Media voti", media)
                 col2.metric("👥 Presenti", f"{len(presenti)}/{len(AMICI)}")
 
-                # Testo esplicativo interno all'expander basato sulle combinazioni scelte
                 if hittato and gasato:
                     st.markdown("**La serata ha sia hittato che gasato! 💥🔥**")
                 elif hittato:
@@ -304,11 +303,12 @@ elif pagina == "📋 Storico uscite":
 
                 st.divider()
 
+                # Generazione tabella presenze corretta
                 tabella = []
                 for amico in AMICI:
                     tabella.append({
                         "Amico": amico,
-                        "Presente": "✅" if dati.get(f"presente_{a}") else "❌",
+                        "Presente": "✅" if dati.get(f"presente_{amico}") else "❌",
                         "Voto": str(dati.get(f"voto_{amico}", "—")) if dati.get(f"presente_{amico}") else "—"
                     })
                 st.dataframe(pd.DataFrame(tabella), hide_index=True, use_container_width=True)
