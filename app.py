@@ -135,11 +135,11 @@ elif pagina == "✍️ Modifica uscita":
     if not uscite:
         st.info("Nessuna uscita da modificare.")
     else:
-        opzioni = {s.id: s.to_dict()["data"] for s in uscite}
+        opzioni = {s.id: s.to_dict() for s in uscite}
         uscita_id = st.selectbox(
             "Seleziona l'uscita da modificare",
             options=list(opzioni.keys()),
-            format_func=lambda x: opzioni[x]
+            format_func=lambda x: f"{opzioni[x]['titolo']} — {opzioni[x]['data']}" if opzioni[x].get("titolo") else opzioni[x]["data"]
         )
 
         dati = db.collection("uscite").document(uscita_id).get().to_dict()
